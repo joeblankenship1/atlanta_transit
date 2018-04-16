@@ -5,7 +5,7 @@
 <head>
     <meta charset="utf-8">
 
-    <title>Leaflet Map</title>
+    <title>Atlanta Urban Geographies</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" />
 
@@ -16,6 +16,16 @@
             width: 100%;
             top: 0;
             bottom: 0;
+            margin: 0;
+            padding: 0;
+            background: rgba(0, 0, 0, 0.75);
+        }
+
+        .tooltip {
+            color: white;
+            background: #295b97;
+            border: 0;
+            font-size: 1.3em;
         }
     </style>
 
@@ -26,11 +36,12 @@
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4=" crossorigin="anonymous"></script>
     <script>
         var options = {
             center: [33.726, -84.365],
             zoom: 11,
-            minZoom: 10,
+            minZoom: 11,
             maxZoom: 16,
             maxBounds: [
                 [33.911, -84.032],
@@ -40,11 +51,102 @@
 
         var map = L.map('map', options);
 
-        L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
-            subdomains: 'abcd',
-            maxZoom: 19
+        map.createPane('labels');
+        map.getPane('labels').style.zIndex = 650;
+        map.getPane('labels').style.pointerEvents = 'none';
+
+        L.tileLayer('https://cartodb-basemaps-d.global.ssl.fastly.net/dark_only_labels/{z}/{x}/{y}.png', {
+            attribution: '©OpenStreetMap, ©CartoDB',
+            pane: 'labels'
         }).addTo(map);
+
+        $.when(
+            $.getJSON('data/city-limits.json'),
+            $.getJSON('data/neighborhoods-filtered1.json'),
+            $.getJSON('data/transit-routes-simp.json'),
+            $.getJSON('data/atlanta-urban.json')
+        ).done(function(cityLimits, neighborhoods, transitRoutes, urbanAreas) {
+            drawMap(cityLimits, neighborhoods, transitRoutes, urbanAreas);
+        });
+
+        function drawMap(cityLimitsData, neighborhoodsData, transitRoutesData, urbanAreasData) {
+            L.geoJson(urbanAreasData, {
+                style: urbanOptions
+            }).addTo(map);
+            L.geoJson(cityLimitsData, {
+                style: cityLimitsOptions
+            }).addTo(map);
+            L.geoJson(neighborhoodsData, {
+                style: neighborhoodOptions,
+                onEachFeature: function(feature, layer) {
+                    var tooltip = feature.properties.NAME;
+
+                    layer.bindTooltip(tooltip, {
+                        sticky: true,
+                        className: 'tooltip'
+                    });
+                    layer.on('mouseover', function(e) {
+                        this.setStyle({
+                            fillOpacity: .1
+                        });
+                    });
+                    layer.on('mouseout', function(e) {
+                        this.setStyle(neighborhoodOptions);
+                    });
+                }
+            }).addTo(map);
+            L.geoJson(transitRoutesData, {
+                style: function(feature) {
+                    var type = feature.properties.type;
+
+                    return type === 'SUBWAY' ? subwayOptions :
+                        type === 'Bus' ? busOptions :
+                        type === 'TRAM' ? tramOptions : otherRoutes;
+                }
+            }).addTo(map);
+
+        }
+
+        var urbanOptions = {
+            color: '#295b97',
+            weight: 0
+        }
+
+        var cityLimitsOptions = {
+            fillOpacity: 0,
+            color: '#040d18',
+            opacity: 1,
+            weight: 3
+        };
+
+        var neighborhoodOptions = {
+            fillOpacity: .3,
+            fillColor: '#e0ecf9',
+            color: '#151f2b',
+            weight: 1.7,
+            opacity: 1
+        };
+
+        var subwayOptions = {
+            color: '#ff6e00',
+            weight: 2,
+            opacity: 1
+        }
+
+        var busOptions = {
+            color: '#f0f062',
+            weight: .1,
+            opacity: 1
+        }
+
+        var tramOptions = {
+            color: '#ff6e00',
+            weight: 2
+        }
+
+        var otherRoutes = {
+            color: '#ff6e00'
+        }
     </script>
 </body>
 
